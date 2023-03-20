@@ -10,10 +10,14 @@ MAX_WAIT = 10
 
 
 class NewVisitorTest(LiveServerTestCase):
+
     def setUp(self):
+        self.browser = self.get_browser()
+
+    def get_browser(self):
         options = webdriver.FirefoxOptions()
         options.binary_location = "/usr/bin/firefox"
-        self.browser = webdriver.Firefox(options=options)
+        return webdriver.Firefox(options=options)
 
     def tearDown(self) -> None:
         self.browser.quit()
@@ -54,3 +58,33 @@ class NewVisitorTest(LiveServerTestCase):
         self.wait_for_row_in_list_table('2: Сделать мушку из павлиньих перьев')
 
         self.fail('Закончить тест!')
+
+    def test_multiple_users_can_start_lists_at_differet_urls(self):
+        self.browser.get(self.live_server_url)
+        inputbox = self.browser.find_element(By.ID, 'id_new_item')
+        inputbox.send_keys('Купить павлиньи перья')
+        inputbox.send_keys(Keys.ENTER)
+        self.wait_for_row_in_list_table('1: Купить павлиньи перья')
+
+        edith_list_url = self.browser.current_url
+        self.assertRegex(edith_list_url, '/lists/.+')
+
+        self.browser.quit()
+
+        self.browser = self.get_browser()
+        self.browser.get(self.live_server_url)
+        page_text = self.browser.find_element(By.TAG_NAME, 'body').text
+        self.assertNotIn('Купить павлиньи перья', page_text)
+        self.assertNotIn('Сделать мушку', page_text)
+        inputbox = self.browser.find_element(By.ID, 'id_new_item')
+        inputbox.send_keys('Купить молоко')
+        inputbox.send_keys(Keys.ENTER)
+        self.wait_for_row_in_list_table('1: Купить молоко')
+
+        francis_list_url = self.browser.current_url
+        self.assertRegex(francis_list_url, '/lists/.+')
+        self.assertNotEqual(francis_list_url, edith_list_url)
+
+        page_text = self.browser.find_element(By.TAG_NAME, 'body').text
+        self.assertNotIn('Купить павлиньи перья', page_text)
+        self.assertIn('Купить молоко', page_text)
